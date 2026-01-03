@@ -1,57 +1,59 @@
-# 🛡️ WireGuard + WGDashboard Installer
+# 🛡️ WireGuard & WGDashboard Install Script
 
+![GitHub last commit](https://img.shields.io/github/last-commit/SassyBaker/Wireguard-and-WGDashboard-Install-Script)
+![GitHub issues](https://img.shields.io/github/issues/SassyBaker/Wireguard-and-WGDashboard-Install-Script)
+![License](https://img.shields.io/github/license/SassyBaker/Wireguard-and-WGDashboard-Install-Script)
 
-Automated installer for **WireGuard VPN** with **WGDashboard** on **Debian 11/12**.  
-Sets up WireGuard, WGDashboard, Nginx with HTTPS, and firewall automatically.
-
----
-
-## 🏷️ Badges
-
-![GitHub last commit](https://img.shields.io/github/last-commit/YOUR_USERNAME/YOUR_REPO)
-![GitHub issues](https://img.shields.io/github/issues/YOUR_USERNAME/YOUR_REPO)
-![License](https://img.shields.io/github/license/YOUR_USERNAME/YOUR_REPO)
+Automated installer for **WireGuard** VPN + **WGDashboard** on Debian servers.  
+This script configures WireGuard, installs WGDashboard, optionally sets up **Nginx + HTTPS**, and configures a firewall for secure access.
 
 ---
 
-## 📑 Table of Contents
+## 🧠 What This Script Does
 
-1. [Features](#-features)  
-2. [Requirements](#-requirements)  
-3. [One-line Installation](#-one-line-install)  
-4. [Manual Installation](#-manual-installation-optional)  
-5. [Security Recommendations](#-security-recommendations)  
-6. [Troubleshooting](#-troubleshooting)  
-7. [License](#-license)  
+✔ Installs **WireGuard** with automatic server keys  
+✔ Sets up **WGDashboard** using its own install utility (`wgd.sh`) :contentReference[oaicite:1]{index=1}  
+✔ Configures **UFW firewall**  
+✔ Optionally sets up **Nginx reverse proxy** with **Let’s Encrypt HTTPS**  
+✔ Enables IPv4 forwarding  
 
 ---
 
-## ⚡ Features
+## 🚀 Features
 
-- Installs **WireGuard** and generates server keys automatically  
-- Installs **WGDashboard** in a Python virtual environment  
-- Configures **Nginx reverse proxy** with HTTPS via Let’s Encrypt  
-- Sets up **UFW firewall** with secure defaults  
-- Fully automated: minimal user input required  
-- Optional: custom ports, interface names, and subnets  
+| Feature | Works Out of the Box |
+|---------|----------------------|
+| WireGuard VPN | ✅ |
+| WGDashboard UI | ✅ |
+| Nginx Reverse Proxy | Optional |
+| HTTPS (Let’s Encrypt) | Optional |
+| Firewall (UFW) | ✅ |
+| Automatic Key Generation | ✅ |
 
 ---
 
 ## 📦 Requirements
 
-- Debian 11 or Debian 12  
-- Root user (`sudo`)  
-- Domain name (for HTTPS / WGDashboard)  
-- Email address (for Let’s Encrypt notifications)  
+Make sure you are running Debian 11 or Debian 12 with **root** privileges.
+
+The script will install:
+
+- `wireguard`, `wireguard-tools`  
+- `git`, `python3`, `python3-venv`, `python3-pip`  
+- `iptables`  
+- `ufw`  
+- `nginx`, `certbot`, `python3-certbot-nginx`  
+
+You’ll be prompted for:
+- Domain name for the dashboard (if you want HTTPS)
+- Let's Encrypt email address
+- WireGuard interface settings
 
 ---
 
-## 🚀 One-line Installation
+## 📦 One‑Line Installation
 
-Run the installer directly from GitHub:
+Run **everything** with one command:
 
 ```bash
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/install-wg.sh)"
-
-
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/SassyBaker/Wireguard-and-WGDashboard-Install-Script/main/install-wg.sh)"
