@@ -136,6 +136,9 @@ ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
 
+echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+
 echo
 echo "=== INSTALLATION COMPLETE ==="
 if [[ -n "$DOMAIN" ]]; then
