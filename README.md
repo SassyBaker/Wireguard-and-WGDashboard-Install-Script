@@ -57,7 +57,3 @@ Run **everything** with one command:
 
 ```bash
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/SassyBaker/Wireguard-and-WGDashboard-Install-Script/main/install-wg.sh)"
-
-echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
-
