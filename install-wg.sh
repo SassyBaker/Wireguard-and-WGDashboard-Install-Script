@@ -164,6 +164,20 @@ cat > "$PEER_TEMPLATE" <<EOF
 PersistentKeepalive = $WG_KEEPALIVE
 EOF
 
+### ===== Enable IPv4 forwarding =====
+echo "=== Enabling IPv4 forwarding ==="
+
+# Add to /etc/sysctl.conf if not already present
+if ! grep -q "^net.ipv4.ip_forward=1" /etc/sysctl.conf; then
+    echo "net.ipv4.ip_forward=1" | tee -a /etc/sysctl.conf
+fi
+
+# Also create sysctl.d override (applies immediately)
+echo "net.ipv4.ip_forward=1" | tee /etc/sysctl.d/99-wireguard.conf
+
+# Apply changes
+sysctl --system
+
 echo
 echo "=== INSTALLATION COMPLETE ==="
 if [[ -n "$DOMAIN" ]]; then
