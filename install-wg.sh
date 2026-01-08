@@ -147,3 +147,6 @@ else
   echo "Dashboard URL: http://<server_ip>:${DASHBOARD_PORT}"
 fi
 echo "WireGuard Port: ${WG_PORT}/udp"
+
+echo "If you want to add dashboard as a service then follow this link"
+echo "https://docs.wgdashboard.dev/guides/Run-WGDashboard-As-A-System-Service.html#run-wgdashboard-as-a-system-service"
