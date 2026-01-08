@@ -9,6 +9,10 @@ fi
 
 echo "=== WireGuard + WGDashboard Installer (Debian 11/12) ==="
 
+### ===== Detect Debian version =====
+DEBIAN_VER=$(lsb_release -rs 2>/dev/null || echo "unknown")
+echo "Detected Debian version: $DEBIAN_VER"
+
 ### ===== PROMPTS =====
 read -rp "Domain name for Nginx & Peer Endpoint (optional): " DOMAIN
 read -rp "Email for Let's Encrypt notifications (required if domain is set): " EMAIL
@@ -40,7 +44,7 @@ read -rp "Continue installation? [y/N]: " CONFIRM
 
 ### ===== System update & dependencies =====
 echo "=== Installing dependencies ==="
-apt update && apt upgrade -y
+apt update
 apt install -y \
   python3 python3-venv python3-pip git \
   wireguard wireguard-tools \
@@ -48,12 +52,11 @@ apt install -y \
   net-tools ufw nginx \
   certbot python3-certbot-nginx ca-certificates
 
-### ===== Enable IPv4 forwarding =====
+### ===== Enable IPv4 forwarding (clean, idempotent) =====
 echo "=== Enabling IPv4 forwarding ==="
-cat > /etc/sysctl.d/99-wireguard.conf <<EOF
-net.ipv4.ip_forward=1
-EOF
-sysctl --system
+SYSCTL_FILE="/etc/sysctl.d/99-wireguard.conf"
+echo "net.ipv4.ip_forward=1" > "$SYSCTL_FILE"
+sysctl --system >/dev/null
 
 ### ===== WireGuard setup =====
 echo "=== Configuring WireGuard ==="
@@ -68,7 +71,10 @@ fi
 PRIVATE_KEY=$(cat /etc/wireguard/privatekey)
 EXT_IF=$(ip route get 1 | awk '{print $5; exit}')
 
-cat > /etc/wireguard/${WG_INTERFACE}.conf <<EOF
+WG_CONF="/etc/wireguard/${WG_INTERFACE}.conf"
+
+if [ ! -f "$WG_CONF" ]; then
+cat > "$WG_CONF" <<EOF
 [Interface]
 Address = ${WG_ADDRESS}
 ListenPort = ${WG_PORT}
@@ -78,31 +84,30 @@ SaveConfig = true
 PostUp = iptables -A FORWARD -i ${WG_INTERFACE} -j ACCEPT; iptables -A FORWARD -o ${WG_INTERFACE} -j ACCEPT; iptables -t nat -A POSTROUTING -o ${EXT_IF} -j MASQUERADE
 PostDown = iptables -D FORWARD -i ${WG_INTERFACE} -j ACCEPT; iptables -D FORWARD -o ${WG_INTERFACE} -j ACCEPT; iptables -t nat -D POSTROUTING -o ${EXT_IF} -j MASQUERADE
 EOF
+fi
 
-chmod 600 /etc/wireguard/${WG_INTERFACE}.conf
+chmod 600 "$WG_CONF"
 systemctl enable wg-quick@${WG_INTERFACE}
 systemctl restart wg-quick@${WG_INTERFACE}
-netfilter-persistent save
 
 ### ===== WGDashboard installation =====
 echo "=== Installing WGDashboard ==="
-cd /opt
-if [ ! -d WGDashboard ]; then
-  git clone https://github.com/WGDashboard/WGDashboard.git
+if [ ! -d "$DASHBOARD_DIR" ]; then
+  git clone https://github.com/WGDashboard/WGDashboard.git "$DASHBOARD_DIR"
 fi
 
-cd ${DASHBOARD_DIR}/src
+cd "${DASHBOARD_DIR}/src"
 chmod +x wgd.sh
-./wgd.sh install
+./wgd.sh install || true
 
 ### ===== WGDashboard systemd service =====
 echo "=== Configuring WGDashboard systemd service ==="
 
 if ! id wgdashboard &>/dev/null; then
-  useradd -r -d ${DASHBOARD_DIR} -s /usr/sbin/nologin wgdashboard
+  useradd -r -d "$DASHBOARD_DIR" -s /usr/sbin/nologin wgdashboard
 fi
 
-chown -R wgdashboard:wgdashboard ${DASHBOARD_DIR}
+chown -R wgdashboard:wgdashboard "$DASHBOARD_DIR"
 
 setfacl -R -m u:wgdashboard:rwX /etc/wireguard
 setfacl -R -m d:u:wgdashboard:rwX /etc/wireguard
@@ -134,33 +139,27 @@ ReadWritePaths=/etc/wireguard ${DASHBOARD_DIR}
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reexec
 systemctl daemon-reload
 systemctl enable wgdashboard
 systemctl restart wgdashboard
 
 ### ===== Set default Peer Remote Endpoint =====
 if [[ -n "$DOMAIN" ]]; then
-  echo "=== Setting WGDashboard peer endpoint to ${DOMAIN}:${WG_PORT} ==="
-
+  echo "=== Setting peer endpoint to ${DOMAIN}:${WG_PORT} ==="
   CONFIG_FILE="${DASHBOARD_DIR}/src/config.ini"
   touch "$CONFIG_FILE"
   chown wgdashboard:wgdashboard "$CONFIG_FILE"
   chmod 640 "$CONFIG_FILE"
 
-  if grep -q "^peer_endpoint" "$CONFIG_FILE"; then
-    sed -i "s|^peer_endpoint.*|peer_endpoint = ${DOMAIN}:${WG_PORT}|" "$CONFIG_FILE"
-  else
-    echo "peer_endpoint = ${DOMAIN}:${WG_PORT}" >> "$CONFIG_FILE"
-  fi
+  sed -i '/^peer_endpoint/d' "$CONFIG_FILE"
+  echo "peer_endpoint = ${DOMAIN}:${WG_PORT}" >> "$CONFIG_FILE"
 
   systemctl restart wgdashboard
 fi
 
 ### ===== Nginx + HTTPS =====
 if [[ -n "$DOMAIN" && -n "$EMAIL" ]]; then
-  echo "=== Configuring Nginx ==="
-  cat > /etc/nginx/sites-available/WGDashboard <<EOF
+cat > /etc/nginx/sites-available/WGDashboard <<EOF
 server {
     listen 80;
     server_name ${DOMAIN};
@@ -183,13 +182,14 @@ EOF
   nginx -t && systemctl reload nginx
 
   certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" || \
-    echo "⚠️ Certbot failed — fix DNS and re-run certbot manually."
+    echo "⚠️ Certbot failed — fix DNS and run manually."
 fi
 
 ### ===== UFW firewall =====
 echo "=== Configuring UFW ==="
 sed -i 's/^#*DEFAULT_FORWARD_POLICY=.*/DEFAULT_FORWARD_POLICY="ACCEPT"/' /etc/default/ufw
 
+ufw --force reset
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow OpenSSH
@@ -197,12 +197,11 @@ ufw allow ${WG_PORT}/udp
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
-ufw reload
 
 ### ===== DONE =====
 echo
 echo "=== INSTALLATION COMPLETE ==="
-echo "WGDashboard runs as a systemd service"
+echo "WGDashboard is running as a systemd service"
 echo "⚠️ CHANGE DEFAULT LOGIN: admin / admin"
 
 if [[ -n "$DOMAIN" ]]; then
@@ -211,4 +210,4 @@ else
   echo "Dashboard URL: http://127.0.0.1:${DASHBOARD_PORT}"
 fi
 
-echo "WireGuard Endpoint for peers: ${DOMAIN:-<server-ip>}:${WG_PORT}"
+echo "WireGuard Peer Endpoint: ${DOMAIN:-<server-ip>}:${WG_PORT}"
