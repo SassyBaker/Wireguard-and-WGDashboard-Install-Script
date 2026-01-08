@@ -44,7 +44,7 @@ apt update && apt upgrade -y
 apt install -y \
   python3 python3-venv python3-pip git \
   wireguard wireguard-tools \
-  iptables iptables-persistent acl \
+  iptables acl \
   net-tools ufw nginx \
   certbot python3-certbot-nginx ca-certificates
 
